@@ -97,48 +97,11 @@ Recommended architecture on Vercel:
 
 Option A: Webhook-only on Vercel (recommended)
 
-1) Create a Vercel project and configure environment variables (OpenAI/ElevenLabs only needed if you plan to generate greeting on-demand; otherwise omit). Set `PUBLIC_BASE_URL` to your storage/CDN where MP3s live.
-2) Add two serverless functions for Twilio IVR under an `api/` directory in your Vercel project (these can live in a separate repo if you prefer):
-
-`api/voice.js`
-```
-export default async function handler(req, res) {
-  const action = new URL('/api/route', process.env.PUBLIC_BASE_URL).toString();
-  const greetingText = process.env.GREETING_TEXT || 'Welcome to the Canadian-run Digg news hotline! For English, press 1. Pour le français, appuyez sur 2.';
-  res.setHeader('Content-Type', 'text/xml');
-  res.status(200).send(`<?xml version="1.0" encoding="UTF-8"?>
-<Response>
-  <Gather input="dtmf" timeout="5" numDigits="1" action="${action}" method="POST">
-    <Say>${greetingText}</Say>
-  </Gather>
-  <Say>No input received. Goodbye.</Say>
-</Response>`);
-}
-```
-
-`api/route.js`
-```
-export const config = { runtime: 'edge' };
-export default async function handler(req) {
-  const form = await req.formData();
-  const digit = (form.get('Digits') || '').toString();
-  const langs = (process.env.LANGUAGES || 'en,fr').split(',').map(s => s.trim());
-  const map = { '1': langs[0] || 'en', '2': langs[1] || 'fr' };
-  const lang = map[digit];
-  const latestEndpoint = new URL(`/shows/latest-url/${lang || 'en'}`, process.env.PUBLIC_BASE_URL).toString();
-  let url;
-  try {
-    const r = await fetch(latestEndpoint);
-    if (r.ok) ({ url } = await r.json());
-  } catch {}
-  const twiml = url
-    ? `<?xml version="1.0" encoding="UTF-8"?>\n<Response>\n  <Play>${url}</Play>\n</Response>`
-    : `<?xml version="1.0" encoding="UTF-8"?>\n<Response>\n  <Say>No episode is available right now. Please call back later.</Say>\n</Response>`;
-  return new Response(twiml, { headers: { 'Content-Type': 'text/xml' } });
-}
-```
-
-3) Point your Twilio Voice webhook to `POST https://<your-vercel-app>.vercel.app/api/voice`.
+1) Create a Vercel project and configure environment variables (OpenAI/ElevenLabs only needed if you plan to generate greeting on-demand; otherwise omit). Set `PUBLIC_BASE_URL` to your storage/CDN or server where MP3s and the latest URL endpoints live.
+2) This repo already includes the needed webhooks under `api/`:
+   - `api/voice.js` – returns TwiML with a `<Gather>` that reads `GREETING_TEXT` and posts to `/api/route`.
+   - `api/route.js` – reads the pressed digit, calls `GET {PUBLIC_BASE_URL}/shows/latest-url/:lang`, and returns TwiML `<Play>` for the latest MP3 (or a fallback `<Say>`).
+3) Deploy to Vercel and point your Twilio Voice webhook to `POST https://<your-vercel-app>.vercel.app/api/voice`.
 4) Keep generating and uploading MP3s from your job; the IVR will always point to the latest URLs.
 
 ### Daily Generation with Vercel Cron (server-backed)
