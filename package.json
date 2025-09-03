@@ -1,0 +1,27 @@
+{
+  "name": "news-story-hotline",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Automated audio news hotline using OpenAI, ElevenLabs, and Twilio.",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "generate": "node src/index.js generate",
+    "dev": "node src/server.js",
+    "greeting": "node src/index.js greeting"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "axios": "^1.7.2",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "morgan": "^1.10.0",
+    "openai": "^4.52.7",
+    "twilio": "^5.3.5",
+    "@mozilla/readability": "^0.4.4",
+    "jsdom": "^24.0.0"
+  }
+}
