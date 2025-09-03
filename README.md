@@ -80,6 +80,127 @@ npm run greeting
 
 The greeting text and voice are configurable via `GREETING_TEXT` and `GREETING_VOICE_ID`. If `GREETING_VOICE_ID` is not set, it falls back to the English voice mapping or the default `ELEVENLABS_VOICE_ID`.
 
+## Deploying to Vercel
+
+Vercel is a serverless platform with important constraints:
+
+- File system is read-only at runtime (only temporary `/tmp` is writable and not persistent).
+- Functions have short timeouts; long TTS and generation jobs may time out.
+- Processes are stateless; do not rely on local `public/shows` or `public/prompts` persistence.
+
+Recommended architecture on Vercel:
+
+- Generate shows off-platform (locally, a small VM, or a scheduled job) using `npm run generate`.
+- Upload the resulting MP3s to persistent storage (e.g., S3/CloudFront, GCS, or Vercel Blob Storage).
+- Set `PUBLIC_BASE_URL` to that storage/CDN domain so Twilio can stream the audio.
+- Deploy only the IVR/webhook endpoints to Vercel to return TwiML that plays those hosted MP3s.
+
+Option A: Webhook-only on Vercel (recommended)
+
+1) Create a Vercel project and configure environment variables (OpenAI/ElevenLabs only needed if you plan to generate greeting on-demand; otherwise omit). Set `PUBLIC_BASE_URL` to your storage/CDN where MP3s live.
+2) Add two serverless functions for Twilio IVR under an `api/` directory in your Vercel project (these can live in a separate repo if you prefer):
+
+`api/voice.js`
+```
+export default async function handler(req, res) {
+  const action = new URL('/api/route', process.env.PUBLIC_BASE_URL).toString();
+  const greetingText = process.env.GREETING_TEXT || 'Welcome to the Canadian-run Digg news hotline! For English, press 1. Pour le français, appuyez sur 2.';
+  res.setHeader('Content-Type', 'text/xml');
+  res.status(200).send(`<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Gather input="dtmf" timeout="5" numDigits="1" action="${action}" method="POST">
+    <Say>${greetingText}</Say>
+  </Gather>
+  <Say>No input received. Goodbye.</Say>
+</Response>`);
+}
+```
+
+`api/route.js`
+```
+export const config = { runtime: 'edge' };
+export default async function handler(req) {
+  const form = await req.formData();
+  const digit = (form.get('Digits') || '').toString();
+  const langs = (process.env.LANGUAGES || 'en,fr').split(',').map(s => s.trim());
+  const map = { '1': langs[0] || 'en', '2': langs[1] || 'fr' };
+  const lang = map[digit];
+  const latestEndpoint = new URL(`/shows/latest-url/${lang || 'en'}`, process.env.PUBLIC_BASE_URL).toString();
+  let url;
+  try {
+    const r = await fetch(latestEndpoint);
+    if (r.ok) ({ url } = await r.json());
+  } catch {}
+  const twiml = url
+    ? `<?xml version="1.0" encoding="UTF-8"?>\n<Response>\n  <Play>${url}</Play>\n</Response>`
+    : `<?xml version="1.0" encoding="UTF-8"?>\n<Response>\n  <Say>No episode is available right now. Please call back later.</Say>\n</Response>`;
+  return new Response(twiml, { headers: { 'Content-Type': 'text/xml' } });
+}
+```
+
+3) Point your Twilio Voice webhook to `POST https://<your-vercel-app>.vercel.app/api/voice`.
+4) Keep generating and uploading MP3s from your job; the IVR will always point to the latest URLs.
+
+### Daily Generation with Vercel Cron (server-backed)
+
+If you run the full server somewhere with persistent storage (Render/Fly/VM/etc.), you can use Vercel Cron to trigger generation daily, or immediately if no shows exist.
+
+This repo includes a serverless function `api/cron.js` and a `vercel.json` cron schedule.
+
+Requirements:
+- Your long-lived server must expose `POST /admin/generate` (already included here) and `GET /shows/latest-url/:lang`.
+- Set on Vercel: `PUBLIC_BASE_URL` pointing to your server, `ADMIN_API_KEY` matching the server’s key, and `LANGUAGES`.
+
+Steps:
+1) Deploy this repo (or a minimal copy containing `api/cron.js` and `vercel.json`) to Vercel.
+2) In Vercel Project Settings → Environment Variables, set:
+   - `PUBLIC_BASE_URL=https://<your-server-host>`
+   - `ADMIN_API_KEY=<your-strong-secret>`
+   - `LANGUAGES=en,fr`
+3) In Vercel Project Settings → Schedules (or via `vercel.json`), ensure a daily cron exists for `/api/cron`.
+
+Behavior:
+- `/api/cron` checks the latest URLs for each language.
+- If any are missing or the newest is older than 24 hours, it calls `POST /admin/generate` with `x-admin-key`.
+- Response includes `shouldGenerate`, per-language statuses, and the generation result (if triggered).
+
+Note: Generating audio on Vercel itself is discouraged due to timeouts and ephemeral storage. Use the cron only to trigger generation on your long‑lived server.
+
+Option B: Adapt this repo to run as Vercel Functions
+
+- Vercel Functions don’t run long-lived `app.listen`. Wrap Express with `serverless-http` and export a handler.
+- Refactor `src/server.js` into an `src/app.js` that exports the Express app, then add `api/index.js`:
+
+`src/app.js`
+```
+import express from 'express';
+// factor out the existing setup from src/server.js into a function
+export function createApp() {
+  const app = express();
+  // middleware, routes, etc.
+  return app;
+}
+```
+
+`api/index.js`
+```
+import serverless from 'serverless-http';
+import { createApp } from '../src/app.js';
+export default serverless(createApp());
+```
+
+Important: Generating/saving MP3s on Vercel is discouraged (timeouts, no persistent FS). Use external storage and background jobs instead.
+
+Option C: Use a VM/host for full server
+
+- If you prefer to keep everything in one place (including generation and local storage), consider Render, Fly.io, Railway, or a small VM where disk persistence and longer runtimes are available. Then set Twilio to call that host directly.
+
+Twilio setup on Vercel:
+
+- Voice webhook: `POST https://<your-vercel-app>.vercel.app/api/voice`
+- Gather action: automatically handled inside the function above (`/api/route`).
+
+
 ## Twilio Configuration
 
 Point your number’s Voice webhook to:

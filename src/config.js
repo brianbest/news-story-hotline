@@ -56,6 +56,9 @@ export const config = {
     process.env.GREETING_TEXT ||
     'Welcome to the Canadian-run Digg news hotline! For English, press 1. Pour le français, appuyez sur 2.',
   greetingVoiceId: process.env.GREETING_VOICE_ID || '',
+
+  // Admin
+  adminApiKey: process.env.ADMIN_API_KEY || '',
 };
 
 export function getSpeakerMap() {

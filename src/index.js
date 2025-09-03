@@ -1,57 +1,17 @@
 import path from 'path';
-import { fetchTopStories } from './diggApiClient.js';
-import { generateShowScript } from './scriptGenerator.js';
-import { synthesizeShow, synthesizePromptOnce } from './tts.js';
-import { ensureStorage, timestampSlug, writeText } from './storage.js';
+import { synthesizePromptOnce } from './tts.js';
+import { ensureStorage } from './storage.js';
 import { config } from './config.js';
 import { log } from './logger.js';
-import { translateText } from './translator.js';
+import { runGenerate } from './generator.js';
 
 async function generate() {
-  await ensureStorage();
-
-  log('Fetching stories (DiggAPI stub)...');
-  const stories = await fetchTopStories(3);
-
-  log('Generating show script (OpenAI)...');
-  const script = await generateShowScript(stories);
-
-  const ts = timestampSlug();
-  const base = `show-${ts}`;
-  // English primary
-  const enScriptPath = path.join(config.dataDir, `${base}-en.txt`);
-  await writeText(enScriptPath, script);
-  log('Saved English script:', enScriptPath);
-
-  // Voices per language
-  const voiceMap = config.langVoiceMap || {};
-
-  // Synthesize English
-  log('Synthesizing English audio (ElevenLabs)...');
-  const enVoice = voiceMap['en'] || config.elevenVoiceId;
-  const enAudioPath = await synthesizeShow(script, config.showsDir, `${base}-en`, enVoice);
-  log('Saved English audio:', enAudioPath);
-
-  // Translations for other languages
-  for (const lang of config.languages.filter((l) => l !== 'en')) {
-    try {
-      log(`Translating script to ${lang}...`);
-      const translated = await translateText(script, lang);
-      const scriptPath = path.join(config.dataDir, `${base}-${lang}.txt`);
-      await writeText(scriptPath, translated);
-      log(`Saved ${lang} script:`, scriptPath);
-
-      const vId = voiceMap[lang] || config.elevenVoiceId;
-      log(`Synthesizing ${lang} audio (ElevenLabs)...`);
-      const audioPath = await synthesizeShow(translated, config.showsDir, `${base}-${lang}`, vId);
-      log(`Saved ${lang} audio:`, audioPath);
-    } catch (e) {
-      console.error(`Failed to translate/synthesize ${lang}:`, e.message || e);
-    }
+  const { outputs, base } = await runGenerate();
+  const enAudio = outputs.find((o) => o.lang === 'en' && o.type === 'audio');
+  if (enAudio) {
+    const publicUrlEn = `${config.publicBaseUrl}/shows/${path.basename(enAudio.path)}`;
+    log('Latest English show URL:', publicUrlEn);
   }
-
-  const publicUrlEn = `${config.publicBaseUrl}/shows/${path.basename(enAudioPath)}`;
-  log('Latest English show URL:', publicUrlEn);
 }
 
 async function generateGreeting() {

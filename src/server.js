@@ -6,6 +6,7 @@ import { config } from './config.js';
 import { ensureStorage, getLatestShowFile, getLatestShowFileByLang } from './storage.js';
 import { log } from './logger.js';
 import { synthesizePromptOnce } from './tts.js';
+import { runGenerate } from './generator.js';
 
 const app = express();
 app.use(express.json());
@@ -98,6 +99,20 @@ app.post('/twilio/voice/route', async (req, res) => {
   const twiml = `<?xml version="1.0" encoding="UTF-8"?>\n<Response>\n  <Play>${url}</Play>\n</Response>`;
   res.set('Content-Type', 'text/xml');
   res.status(200).send(twiml);
+});
+
+// Admin: trigger generation (protected by ADMIN_API_KEY)
+app.post('/admin/generate', async (req, res) => {
+  const key = req.get('x-admin-key') || req.query.key;
+  if (!config.adminApiKey || key !== config.adminApiKey) {
+    return res.status(401).json({ error: 'unauthorized' });
+  }
+  try {
+    const result = await runGenerate();
+    res.json({ ok: true, ...result });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e?.message || String(e) });
+  }
 });
 
 // Boot server
