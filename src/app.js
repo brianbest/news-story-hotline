@@ -7,7 +7,7 @@ import { ensureStorage, getLatestShowFile, getLatestShowFileByLang } from './sto
 import { log } from './logger.js';
 import { synthesizePromptOnce } from './tts.js';
 import { runGenerate } from './generator.js';
-
+// things 
 export function createApp() {
   const app = express();
   app.use(express.json());

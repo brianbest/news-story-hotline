@@ -22,7 +22,7 @@ This is the simplest approach - deploy only the Twilio webhooks to Vercel and ho
    GREETING_TEXT=Welcome to the news hotline! Press 1 for English, 2 for French.
    ```
    
-   Note: You don't need OpenAI/ElevenLabs keys for webhook-only deployment.
+   Note: You don't need OpenAI/ElevenLabs keys for webhook-only deployment.s
 
 4. **Deploy:**
    - Click "Deploy" - Vercel will build and deploy automatically
