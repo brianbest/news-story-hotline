@@ -80,7 +80,18 @@ npm run greeting
 
 The greeting text and voice are configurable via `GREETING_TEXT` and `GREETING_VOICE_ID`. If `GREETING_VOICE_ID` is not set, it falls back to the English voice mapping or the default `ELEVENLABS_VOICE_ID`.
 
-## Deploying to Vercel
+## Quick Vercel Deployment
+
+**🚀 For the easiest deployment, see [VERCEL_DEPLOY.md](VERCEL_DEPLOY.md) for step-by-step instructions.**
+
+### TL;DR - Deploy in 2 minutes:
+1. Fork this repo on GitHub
+2. Import to Vercel at [vercel.com](https://vercel.com)  
+3. Set environment variable: `PUBLIC_BASE_URL=https://your-audio-host.com`
+4. Deploy
+5. Point Twilio webhook to: `https://your-app.vercel.app/api/voice`
+
+## Advanced Vercel Configuration
 
 Vercel is a serverless platform with important constraints:
 

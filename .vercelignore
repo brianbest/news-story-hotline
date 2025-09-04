@@ -1,0 +1,30 @@
+# Local development files
+.env
+.env.local
+.env.*.local
+
+# Generated content (not needed for webhook-only deployment)
+data/
+public/shows/*.mp3
+public/prompts/*.mp3
+
+# Development dependencies
+node_modules/.cache
+
+# Documentation
+*.md
+!README.md
+
+# Git files
+.git/
+.gitignore
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
