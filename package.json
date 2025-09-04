@@ -10,8 +10,8 @@
     "generate": "node src/index.js generate",
     "dev": "node src/server.js",
     "greeting": "node src/index.js greeting",
-    "build": "echo 'No build step required for Vercel deployment'",
-    "vercel-build": "echo 'Vercel build complete'"
+    "build": "echo 'No build step required - using serverless functions'",
+    "vercel-build": "echo 'Vercel serverless functions ready'"
   },
   "engines": {
     "node": ">=18"

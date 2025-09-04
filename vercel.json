@@ -1,4 +1,25 @@
 {
+  "version": 2,
+  "builds": [
+    {
+      "src": "api/**/*.js",
+      "use": "@vercel/node"
+    }
+  ],
+  "functions": {
+    "api/index.js": {
+      "maxDuration": 30
+    },
+    "api/voice.js": {
+      "maxDuration": 10
+    },
+    "api/route.js": {
+      "maxDuration": 10
+    },
+    "api/cron.js": {
+      "maxDuration": 60
+    }
+  },
   "crons": [
     { "path": "/api/cron", "schedule": "0 9 * * *" }
   ]

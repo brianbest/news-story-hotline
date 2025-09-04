@@ -12,7 +12,8 @@ This is the simplest approach - deploy only the Twilio webhooks to Vercel and ho
 
 2. **Connect to Vercel:**
    - Go to [vercel.com](https://vercel.com) and import your repository
-   - Vercel will automatically detect it as a Node.js project
+   - Vercel will automatically detect it as a Node.js serverless functions project
+   - The `vercel.json` configuration ensures proper serverless deployment
 
 3. **Set Environment Variables in Vercel:**
    ```
@@ -123,3 +124,21 @@ npm start         # Start the server
 - **Option 3 (Hybrid)**: Best for automated daily shows, requires managing two deployments
 
 Choose Option 1 or 3 for production use cases.
+
+## Troubleshooting
+
+### "No Output Directory named 'public' found" Error
+
+If you see this error during deployment, it means Vercel is trying to build this as a static site instead of serverless functions. This is fixed by:
+
+1. **Ensure `vercel.json` is present** with the correct configuration (it should be in the repo)
+2. **Check that your `api/` directory contains the function files**
+3. **Verify Node.js version** is set to 18+ in your Vercel project settings
+
+The `vercel.json` file tells Vercel this is a serverless functions project, not a static site.
+
+### Functions Not Working
+
+- **Check environment variables** are set in your Vercel dashboard
+- **Verify function paths** match the `api/` directory structure
+- **Check function logs** in the Vercel dashboard for detailed error messages
